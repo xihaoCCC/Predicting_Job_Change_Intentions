@@ -2,11 +2,11 @@
 #### Author: Xihao Cao 
 #### Date: 11/2/2021
 ## Personal Statement:
-Big Data is one of the most popular topics in society, and almost every industry meet tons of data that contain the keys to insight into new
-business opportunities. Thus, as someone who can play with data professionally, a data analyst/scientist/consultant is widely needed. My career
-goal is to be a professional in the data area, and I find myself interested in communicating with others, thus working in the HR department as
-a data analyst may be a good choice for me. In this project, I want to stand in the HR position to understand the factors that lead a person
-to leave the current job and try to predict whether a given candidate will leave the current job.
+Big Data is one of the most popular topics in society nowadays. Almost every industry meets tons of data every day, and the keys to insight into new
+business opportunities are hidden in those data. Thus, as someone who can play with data professionally, a data analyst/scientist/consultant is widely
+needed. My career goal is to be a professional in the data area, and I also find myself interested in communicating with others, thus working in the HR
+department as a data analyst may be a good choice for me. In this project, I want to stand in the HR position to understand the factors that lead a person
+to leave the current job, and try to predict whether a given candidate will leave the current job.
 
 ## The data set:
 I get this data set from the Kaggle database, the link is https://www.kaggle.com/arashnic/hr-analytics-job-change-of-data-scientists. This dataset
