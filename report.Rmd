@@ -1,0 +1,289 @@
+---
+title: "Report"
+author: "XihaoCao"
+date: "2021/12/9"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE, echo = F, message = F, warning = F}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(magrittr)
+library(grid)
+library(gtable)
+library(lattice)
+library(gridExtra)
+library(lme4)
+library(sjPlot)
+library(sjmisc)
+library(sjlabelled)
+library(stats)
+library(arm)
+library(lmerTest)
+library(stringr)
+library(scales)
+library(caret)
+```
+
+# Abstract
+In order to find the factors that lead a candidate to look for a new job, I firstly conduct the Exploratory Data Analysis by a series of graphs. I notice that the data set is imbalanced in some variables, ex: gender, and I will not include them in the Model. I also notice that the influence of the education level a candidate have seems to vary among the cities, so, I will consider it as a random effect and use the city to construct groups. Since there are over 120 cities, in order to build the model more efficiently, I will only include the top 15 cities with where most candidates are from. Then I build the multilevel model and I find that working in the public sector, being current university enrolled and higher city development index all lead to a higher possibility for a candidate to look for a new job, while I have uncertainties for the other variables.
+
+
+# Introduction
+A Big Data company has set up a series of data scientist training courses, and it wants to hire candidates who have successfully passed those courses. However, not all people want to quit their current jobs after the training, and the company wants to know which of these candidates are looking for a job change. Thus I will try to understand the factors, ex: their education level, previous experience, training hours, that lead candidates to quit their jobs. If we can build a efficient model to predict the probability that a candidate looks for a job change, we can help the company to reduce the cost and time planning the courses and categorization of candidates, and allow the employee to make better decisions.
+
+
+# Data Resource
+I get this data set from the Kaggle database, and it contains 12 columns and 19158 observations. The columns are enrolled_id, city, city_development_index, gender, relevant_experience, enrolled_university, education_level, major_discipline, experience, company_size, company_type, last_new_job, training_hours, target. And the outcome is the target column which is a binary value indicating whether each candidate is looking for a job change.
+
+```{r, echo = F, message = F, warning = F}
+# read the data set into R
+raw_data <- read.csv('train_data.csv')
+```
+
+
+# Missing data and Data Organizations
+The missing values in the data set are assigned a blank value rather than NA, in order to visualize and process easier, I replace all the missing value by a 'NA' string. And since all columns in the data set are stored as in the character type, I factorize all the columns that are not continuous to prepare for the model establishment.
+```{r, echo = F, message = F, warning = F}
+# Fill in every blank space by 'NA', and switch the character variable to factor variable
+tidy_data <- raw_data
+for (i in 1:ncol(raw_data)) {
+  tidy_data[,i][nchar(raw_data[,i]) <1] <- "NA"
+}
+tidy_data <-  tidy_data %>% mutate_if(is.character, as.factor) %>% mutate(training_hours = as.numeric(training_hours))
+```
+
+# EDA
+Before I build the model, I conduct the exploratory data analysis to have a better understanding of the data set. In Figure 1, I explore the amount of missing values of each variable. As we can see, company size and company type have around 6000 missing values, which is almost one third of the total data set. Although these two variables have many variables, since we have a large data set that contains about 20000 pieces of observations, thus I will still include them in the model.
+```{r, echo = F, message = F, warning = F}
+# missing values EDA
+NA_count <- data.frame(variable = colnames(tidy_data), value = 0)
+for (i in 1:ncol(tidy_data)) {
+  NA_count[i,2] <- sum(tidy_data[,i] == 'NA')
+}
+c1 <- NA_count %>% filter(value != 0) %>% mutate(variable = reorder(variable, desc(value))) %>% ggplot(aes(x = variable, y = value)) + geom_col(aes(fill = variable), color = 'black') + geom_label(aes(label = value), size = 3) + theme(axis.text.x = element_text(angle = 30)) + labs(x = 'column name', y = 'count', title = 'Figure1: number of missing value in each column')
+```
+
+
+In Figure 2: I plot the number of candidates in each gender group, as we can see that almost 70% candidate are male, and we also have over 4500 missing values. Since the data set is imbalanced within the gender variable and the gender is commonly prohibited to be a admission factor, I will not include gender as a predictor in the model.
+```{r, echo = F, message = F, warning = F}
+# gender EDA
+c2 <- count(tidy_data, gender) %>% mutate(ratio = n/19158, label = percent(round(ratio, 2))) %>% ggplot(aes(x = reorder(gender, -ratio), y = ratio)) + geom_col(aes(fill = gender), color = 'black') +
+  labs(title = 'Figure2: proportion of each gender to the whole', x = 'gender', y = 'proportion') + geom_label(aes(label = label))
+```
+
+
+In Figure 3, I explore the size of each education level, and we can notice that 61% of the candidate hold a graduate degree. 
+```{r, echo = F, message = F, warning = F}
+# education_level EDA
+c3 <- count(tidy_data, education_level) %>% mutate(ratio = n/19158, label = percent(round(ratio, 2))) %>% ggplot(aes(x = reorder(education_level, -ratio), y = ratio)) + geom_col(aes(fill = education_level), color = 'black') +
+  labs(title = 'Figure3: proportion of each education level to the whole', x = NULL, y = 'proportion') + geom_label(aes(label = label))
+```
+
+In Figure 4, I explore how many candidates are there in each major_disciplines, and we can see that over 80% candidates come from the STEM majors and there are about 15% missing values. Thus the major_discipline column is also imbalanced, and I will not include it into the model.
+```{r, echo = F, message = F, warning = F}
+# major_discipline EDA
+c4 <- count(tidy_data, major_discipline) %>% mutate(ratio = n/19158, label = percent(round(ratio, 2))) %>% ggplot(aes(x = reorder(major_discipline, -ratio), y = ratio)) + geom_col(aes(fill = major_discipline), color = 'black') +
+  labs(title = 'Figure4: proportion of each major discipline to the whole', x = NULL, y = 'proportion') + geom_label(aes(label = label), size = 3)
+```
+
+In Figure 5, I check the size of each university enrollment groups, as we can see that over 70% candidate are not enrolled in a university.
+```{r, echo = F, message = F, warning = F}
+# enrolled_university EDA
+c5 <- count(tidy_data, enrolled_university) %>% mutate(ratio = n/19158, label = percent(round(ratio, 2))) %>% ggplot(aes(x = reorder(enrolled_university, -ratio), y = ratio)) + geom_col(aes(fill = enrolled_university), color = 'black') +
+  labs(title = 'Figure5: proportion of each enrolled university condition to the whole', x = NULL, y = 'proportion') + geom_label(aes(label = label), size = 3)
+```
+
+In figure 6, I check the size of each experience group, and we can notice that the experience of candidates has a relative large range from 0 to 20.
+```{r, echo = F, message = F, warning = F}
+# experience EDA
+c6 <- count(tidy_data, experience) %>% mutate(ratio = n/19158, label = percent(round(ratio, 2))) %>% ggplot(aes(x = reorder(experience, -ratio), y = ratio)) + geom_col(aes(fill = experience), color = 'black') +
+  labs(title = 'Figure6: proportion of each experience level to the whole', x = NULL, y = 'proportion') + geom_label(aes(label = label), size = 3)
+```
+
+
+In figure 7, as we can see that distributions of training hours of candidates both take the offer and not share almost the same shape. Thus we can conclude that the training hours has little impact on candidate' final decisions, and I will not include the training hours in my model.
+```{r, echo = F, message = F, warning = F}
+# training_hours EDA
+c7 <- tidy_data %>% dplyr::select(training_hours,target) %>% 
+  ggplot(aes(x = as.numeric(training_hours), color = target)) + geom_freqpoly(bins = 40, size = 1) + labs(title = 'Figure7: Relationship between training hours and candidate\'s final decision', x = 'training hour', y = 'count')
+```
+
+
+In the last figure, I check the when were the last job of each candidate, as we can see the distribution is not imbalanced, and most candidates have quited last job within a year.
+```{r, echo = F, message = F, warning = F}
+# last new job EDA
+c8 <- count(tidy_data, last_new_job) %>% mutate(ratio = n/19158, label = percent(round(ratio, 2))) %>% ggplot(aes(x = reorder(last_new_job, -ratio), y = ratio)) + geom_col(aes(fill = last_new_job), color = 'black') +
+  labs(title = 'Figure8: proportion of each last_new_job level to the whole', x = NULL, y = 'proportion') + geom_label(aes(label = label), size = 3)
+```
+
+
+
+```{r, echo = F, message = F, warning = F, fig.width = 16, fig.height = 10}
+grid.arrange(c1, c2, c3, c4, ncol = 2)
+```
+
+
+```{r, echo = F, message = F, warning = F, fig.width = 16, fig.height = 10}
+grid.arrange(c5, c6, c7, c8, ncol = 2)
+```
+
+
+# Use City to construct Groups
+From the two figures, we notice that there are 70 cities who have a sample size smaller than 50, but at least one fourth of the total candidates are from the city 103 and the top 10 cities contain over 13500 candidate, which are over 70% of the total observations. So, it is not wise to build group for each city and I will only keep the top 15 cities to build 15 groups. The selected cities with ID are listed below.
+
+```{r, echo = F, message = F, warning = F}
+check_size <- function(n){
+  moded <- n %/% 50
+  if (moded <= 6 & moded >= 1) {
+    return(paste('Between', moded * 50, 'and', (moded + 1) * 50))
+  } else if (moded < 1) {
+    return('Smaller Than 50')
+  } else {
+    return('Larger Than 300')
+  }
+}
+
+group_level <- tidy_data %>% group_by(city) %>% summarize(n = n())
+group_level <- group_level %>%
+  mutate(scale = apply(as.data.frame(group_level$n), 1, FUN = check_size))
+
+p1 <- group_level %>% group_by(scale) %>% summarize(n = n()) %>% ggplot(aes(x = reorder(scale, -n), y = n)) +
+  geom_col(aes(fill = scale)) + geom_text(aes(label = n)) +
+  theme(axis.text.x = element_text(angle = 15)) + labs(title = 'number of city in each scale', x = 'scale', y = 'number of city')
+```
+
+
+```{r, echo = F, message = F, warning = F}
+p2 <- group_level %>% arrange(desc(n)) %>% slice(1:15) %>% ggplot(aes(x = reorder(city, -n), y = n)) +
+  geom_col(aes(fill = city), color = 'black') + geom_text(aes(label = n)) +
+  theme(axis.text.x = element_text(angle = 25)) + labs(title = 'cities where most candidates are from', x = 'city ID', y = 'number of candidate')
+```
+
+
+```{r, echo = F, message = F, warning = F, fig.width = 16, fig.height = 6}
+grid.arrange(p1, p2, ncol = 2)
+```
+
+
+```{r, echo = F, message = T, warning = F}
+# slice the top 15 cities
+city_list <- c('city_103', 'city_21', 'city_16', 'city_114', 'city_160', 'city_136', 'city_67', 'city_75', 'city_102', 'city_104', 'city_73', 'city_100', 'city_71', 'city_11', 'city_61')
+print(paste('The selected city is', city_list))
+```
+
+
+```{r, echo = F, message = F, warning = F}
+# reorganize the model data
+model_data <- raw_data %>% filter(city %in% city_list) %>% filter_all(all_vars((. != ''))) %>% mutate_if(is.character, as.factor) %>% mutate(training_hours = as.numeric(training_hours), city_development_index = as.numeric(city_development_index), experience = as.numeric(experience))
+
+# make train, test group
+set.seed(666)
+ind <- sample(2, nrow(model_data), replace = T, prob = c(0.7, 0.3))
+model_train <- model_data[ind == 1, ]
+model_test <- model_data[ind == 2, ]
+```
+
+
+
+# Model establishment
+Since We use the top 15 cities most candidates live in to build groups, we have total 15 groups. Then I construct the initial Multilevel model including every variable into the model. Then we check the inital model coefficients by summary, I notice that only city_development_index, enrolled_university, education_level, last-new_job, and company type are significant at the 0.05 level. Thus I will only keep these variables and build my final multilevel model. And, according to our observations in the EDA section, we set the education level as a random effect and leave all others as fixed effects. 
+```{r, echo = F, message = F, warning = F}
+# Initial Model fit
+fit1 <- glmer(target ~ city_development_index + enrolled_university + education_level + last_new_job + log(training_hours) + experience + company_size + company_type + (1|city), family = binomial(link = 'logit'), data = model_train)
+```
+\
+
+Our final model has the following structure:
+```{r, message = F, warning = F}
+fit0 <- glmer(target ~ city_development_index + enrolled_university + last_new_job + 
+                company_type + (1 + education_level|city), 
+              family = binomial(link = 'logit'), data = model_train)
+```
+
+Notice that enrolled-university, last_new_job, and company_type are all factor variables, so we have coefficients for all the factor categories except for their baselines. And we can see that city_development_index, full time university enrollment, public sector conpany tyep and last_new_job in 3, 4, never are all significant at the 0.05 level.
+
+|                                    |Estimate   |Std. Error  |Z value |Pr(>|z|)      |
+|:---:                               |:---:      |:---:       |:---:   |:---:         |
+|(Intercept)                         |5.65792    |0.90972     |6.219   |4.99e-10 ***  |
+|city_development_index              |-9.06148   |1.01555     |-8.923  |2e-16    ***  |
+|enrolled_universityno_enrollment    |-0.37976   |0.14049     |-2.703  |0.00687  **   |
+|enrolled_universityPart time course |-0.31751   |0.24624     |-1.289  |0.19725       |
+|last_new_job1                       |0.09870    |0.13085     |0.754   |0.45066       |
+|last_new_job2                       |0.15041    |0.15213     |0.989   |0.32281       |
+|last_new_job3                       |0.41354    |0.19582     |2.112   |0.03470  *    |
+|last_new_job4                       |0.43491    |0.19367     |2.246   |0.02473  *    |
+|last_new_jobnever                   |0.50621    |0.22246     |2.275   |0.02288  *    |
+|company_typeFunded Startup          |-0.06352   |0.26955     |-0.236  |0.81371       |
+|company_typeNGO                     |0.01462    |0.31691     |0.046   |0.96321       |
+|company_typeOther                   |0.75507    |0.49387     |1.529   |0.12629       |
+|company_typePublic Sector           |0.81859    |0.27545     |2.972   |0.00296  **   |
+|company_typePvt Ltd                 |0.16060    |0.21966     |0.731   |0.46468       |
+
+
+And for the random effect:
+
+|                          |Variance       |Std.Dev.    |Corr    |Pr(>|z|) |
+|:---:                     |:---:          |:---:       |:---:   |:---:    |
+|(Intercept)               |0.101853       |0.31914     |                  |
+|education_levelMasters    |0.003229       |0.05683     |0.39    |0.97     |
+|education_levelPhd        |0.846315       |0.91995     |0.15    |0.97     |
+
+
+
+
+# Result
+By the model coefficients tables above, we can have the following interpretations of the variables in the model.
+
+* The lower the development index of the city a candidate live in, the less likely for this candidate to look for a new job.
+
+* A candidate who is currently enrolled in a university is less likely to look for a new job compared with another candidate who has the same conditions, but not enrolled in a university.
+
+* For Candidates who have changed jobs within 2 and 4 years or never are more likely to look for a new job compared with candidates who have changed jobs further than 4 years from now.
+
+* Candidates who are currently working in a public sector are more likely to look for a new job than candidates from the Early-Stage companies.
+
+Thus, we can conclude that working in the public sector, current university enrollment, having 2-4 years difference between previous job and current job, and higher city development index all lead to a higher possibility to look for a new job. Meanwhile, the PHD education level as a random effect has relative large variance across the 15 cities, which means the ability of the PhD education degree to influence a candidate's decision in each city is noticeably different. But, the variance of the Master degree is relatively small, which indicates that the Master degree has relatively the same ability to influence a candidate in each city.
+\
+
+# Discussion
+The model is relatively efficient, and the coefficient estimates are consistent with my assumption. By the accuracy test with a 0.5 probability threshold, the model has about 85% accuracy. The model suggests that the employee should focus on the university enrollment status, PhD degree, the city development index of the city living in, previous working history of a candidate to make decisions. However, I did not include gender, major discipline, experience, current working company size, and training hours in the model which may be considered important to some employees and some specific job positions.
+
+Some concerns of this model is that the model residuals are bigger than expectations, I will spend more time improve the performance of the model later. Since the outcome is binary, we need to manually set a threshold between 0 and 1 to conduct the accuracy test, which means for predictions higher than this threshold, a candidate is considered to look for a new job. And the value of this threshold greatly determines the accuracy, I set the threshold to be 0.5, which is a common choice.
+\
+
+
+# Reference
+1. Kaggle: https://www.kaggle.com/arashnic/hr-analytics-job-change-of-data-scientists
+2. Example report from Yu Zhe: https://learn.bu.edu/bbcswebdav/pid-9831929-dt-content-rid-61802940_1/xid-61802940_1
+3. sjplot reference page: http://www.strengejacke.de/sjPlot/reference/plot_model.html
+\
+
+
+# Appendix
+Model Validation:
+```{r, echo = F}
+binnedplot(fitted(fit0),resid(fit0))
+```
+
+The following are the accuracy check with p=0.5 as the threshold.
+```{r, echo = F, message = F, warning = F}
+# Accuracy test
+pred <- ifelse(predict(fit0, newdata = model_train, type = "response") >= .5, "Quit", "Stay")
+pred <- factor(pred,  levels = c('Quit','Stay'), labels=c('Quit','Stay'))
+model_train$target <- factor(model_train$target, levels = c(1, 0), labels=c('Quit','Stay'))
+
+confusionMatrix(pred, model_train$target)
+```
+
+
+
+
+
+
+
+
+
