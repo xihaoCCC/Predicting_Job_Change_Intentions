@@ -18,11 +18,11 @@ Link to Data: https://www.kaggle.com/datasets/arashnic/hr-analytics-job-change-o
 
 
 ## File Descriptions
-- OptimalModelExploration.R: An R script for data exploration and determining the best model framework.
-- job_change_prediction.Rmd: R Markdown document detailing the analysis and modeling process.
-- job_change_prediction.pdf: PDF report generated from the R Markdown file.
-- test_data.csv: Dataset used for model validation.
-- train_data.csv: Primary dataset used for model training.
+- `OptimalModelExploration.R`: An R script for data exploration and determining the best model framework.
+- `job_change_prediction.Rmd`: R Markdown document detailing the analysis and modeling process.
+- `job_change_prediction.pdf`: PDF report generated from the R Markdown file.
+- `test_data.csv`: Dataset used for model validation.
+- `train_data.csv`: Primary dataset used for model training.
 
 
 ## Key Results
