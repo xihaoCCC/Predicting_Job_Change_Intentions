@@ -27,4 +27,11 @@ Link to Data: https://www.kaggle.com/datasets/arashnic/hr-analytics-job-change-o
 - 3.png: MLP accuracy and performance
 
 
+## Key Results
+* Candidates from lower-developed cities tend to stay in their current jobs.
+* University-enrolled candidates are less inclined to seek new employment.
+* Those who've changed jobs within the past 2-4 years, or not at all, show a higher tendency to consider new roles.
+* Public sector employees are more open to job transitions compared to those in start-up companies.
+
+
 ### For inquiries or further discussion, please reach out to me at [xihaocao@163.com](mailto:xihaocao@163.com). Thank you!
