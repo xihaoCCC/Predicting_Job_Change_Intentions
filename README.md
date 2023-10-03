@@ -18,13 +18,11 @@ Link to Data: https://www.kaggle.com/datasets/arashnic/hr-analytics-job-change-o
 
 
 ## File Descriptions
-- Data_Loading.R: An R script dedicated to importing and consolidating the neural data of mice into a singular container.
-- Data_Wrangling.R: An R script designed for cleaning and refining the mice neural data.
-- mice_project-report.RMD: An RMD file that produces the detailed analysis report for the project.
-- mice_project-report.pdf: A PDF version of the project report, derived from the aforementioned RMD file.
-- 1.png: MLP structure diagram
-- 2.png: data structure diagram
-- 3.png: MLP accuracy and performance
+- OptimalModelExploration.R: An R script for data exploration and determining the best model framework.
+- job_change_prediction.Rmd: R Markdown document detailing the analysis and modeling process.
+- job_change_prediction.pdf: PDF report generated from the R Markdown file.
+- test_data.csv: Dataset used for model validation.
+- train_data.csv: Primary dataset used for model training.
 
 
 ## Key Results
